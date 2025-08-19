@@ -8,73 +8,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    body {
-      background-color: #f9f9fb;
-      color: #333;
-      padding: 20px;
-      line-height: 1.6;
-    }
-    .container {
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    h2 {
-      text-align: center;
-      color: #4a4a7d;
-      margin-bottom: 20px;
-    }
-    .info {
-      margin-bottom: 16px;
-    }
-    .label {
-      font-weight: 600;
-      color: #555;
-    }
-    .value {
-      margin-top: 4px;
-      padding: 8px 12px;
-      background: #f0f0f0;
-      border-radius: 6px;
-    }
-    .actions {
-      margin-top: 24px;
-      display: flex;
-      gap: 12px;
-    }
-    button {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    #excelBtn {
-      background: #2e74b5;
-      color: white;
-    }
-    #excelBtn:hover {
-      background: #205a8a;
-    }
-    #pdfBtn {
-      background: #c45911;
-      color: white;
-    }
-    #pdfBtn:hover {
-      background: #9a470d;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f9f9fb; color: #333; padding: 20px; line-height: 1.6; }
+    .container { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-width: 600px; margin: 0 auto; }
+    h2 { text-align: center; color: #4a4a7d; margin-bottom: 20px; }
+    .info { margin-bottom: 16px; }
+    .label { font-weight: 600; color: #555; }
+    .value { margin-top: 4px; padding: 8px 12px; background: #f0f0f0; border-radius: 6px; }
+    .actions { margin-top: 24px; display: flex; gap: 12px; }
+    button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.3s; }
+    #excelBtn { background: #2e74b5; color: white; }
+    #excelBtn:hover { background: #205a8a; }
+    #pdfBtn { background: #c45911; color: white; }
+    #pdfBtn:hover { background: #9a470d; }
   </style>
 </head>
 <body>
@@ -95,17 +41,19 @@
     const urlParams = new URLSearchParams(window.location.search);
     const orderNumber = urlParams.get("order");
 
-    document.getElementById("orderNumber").textContent = orderNumber;
+    document.getElementById("orderNumber").textContent = orderNumber || "—";
 
-    // Загружаем данные заказа из бота (через ваш бэкенд или файл)
-    // Пока делаем заглушку — в реальности вы можете запросить данные с сервера
     async function loadOrder() {
+      // Здесь должен быть ваш защищённый endpoint, принимающий initData от Telegram
+      // Пример:
+      // const initData = tg.initDataUnsafe;
+      // const res = await fetch(`/api/order?number=${encodeURIComponent(orderNumber)}`, {
+      //   headers: { 'X-Telegram-InitData': tg.initData }
+      // });
+      // const data = await res.json();
+      // renderOrder(data);
       try {
-        const response = await fetch(`https://your-server.com/api/order?number=${orderNumber}`);
-        const data = await response.json();
-        renderOrder(data);
-      } catch (e) {
-        // Или эмулируем данные для демонстрации
+        // Пока заглушка (демо)
         renderOrder({
           "Номер_заказа": orderNumber,
           "Дата_создания": new Date().toLocaleString(),
@@ -113,19 +61,22 @@
           "Телефон": "+79991234567",
           "Дата": "2025-04-05",
           "Время": "14:30",
-          "Класс бетона/марка р-ра": "В25",
+          "Класс бетона/марка раствора": "В25",
           "Подвижность, морозостойкость, дубль, крупность щебня": "W6F100П4",
           "Способ подачи смеси": "насос",
           "Адрес": "ул. Ленина, 10",
           "Примечание": "Доставка после 18:00"
         });
+      } catch (e) {
+        tg.showAlert("Не удалось загрузить заказ");
       }
     }
 
     function renderOrder(data) {
       const container = document.getElementById("orderDetails");
+      container.innerHTML = "";
       Object.entries(data).forEach(([key, value]) => {
-        if (!value || key === "id") return;
+        if (value === undefined || value === null || value === "" || key === "id") return;
         const div = document.createElement("div");
         div.className = "info";
         div.innerHTML = `<div class="label">${key}</div><div class="value">${value}</div>`;
@@ -133,7 +84,6 @@
       });
     }
 
-    // Кнопка Excel
     document.getElementById("excelBtn").onclick = function () {
       const wb = XLSX.utils.book_new();
       const data = [];
@@ -144,16 +94,15 @@
       });
       const ws = XLSX.utils.aoa_to_sheet([["Поле", "Значение"], ...data]);
       XLSX.utils.book_append_sheet(wb, ws, "Заказ");
-      XLSX.writeFile(wb, `Заказ_${orderNumber}.xlsx`);
+      XLSX.writeFile(wb, `Заказ_${orderNumber || 'без_номера'}.xlsx`);
     };
 
-    // Кнопка PDF
     document.getElementById("pdfBtn").onclick = function () {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       let y = 20;
       doc.setFontSize(16);
-      doc.text(`Заказ ${orderNumber}`, 20, y);
+      doc.text(`Заказ ${orderNumber || '—'}`, 20, y);
       y += 10;
 
       document.querySelectorAll(".info").forEach(el => {
@@ -162,15 +111,19 @@
         doc.setFontSize(12);
         doc.text(label + ":", 20, y);
         doc.setFontSize(10);
-        doc.text(value, 20, y + 8);
-        y += 15;
+        const lines = doc.splitTextToSize(value, 170);
+        lines.forEach(line => {
+          y += 6;
+          doc.text(line, 20, y);
+        });
+        y += 10;
         if (y > 270) {
           doc.addPage();
           y = 20;
         }
       });
 
-      doc.save(`Заказ_${orderNumber}.pdf`);
+      doc.save(`Заказ_${orderNumber || 'без_номера'}.pdf`);
     };
 
     loadOrder();
