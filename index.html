@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Заказ #</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -19,8 +18,6 @@
     button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.3s; }
     #excelBtn { background: #2e74b5; color: white; }
     #excelBtn:hover { background: #205a8a; }
-    #pdfBtn { background: #c45911; color: white; }
-    #pdfBtn:hover { background: #9a470d; }
   </style>
 </head>
 <body>
@@ -37,95 +34,56 @@
     tg.ready();
     tg.expand();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const orderNumber = urlParams.get("order");
+    const qp = new URLSearchParams(window.location.search);
 
+    // Поддержка коротких параметров: n,c,a,k,p,v,s,m,d
+    const orderData = {
+      "Номер_заказа": qp.get("n") || qp.get("order") || "",
+      "Дата_создания": qp.get("d") || "",
+      "Контрагент": qp.get("c") || "",
+      "Адрес": qp.get("a") || "",
+      "Класс бетона/марка раствора": qp.get("k") || "",
+      "Подвижность, морозостойкость, дубль, крупность щебня": qp.get("p") || "",
+      "Объем, м³": qp.get("v") || "",
+      "Способ подачи смеси": qp.get("s") || "",
+      "Примечание": qp.get("m") || "",
+    };
+
+    const orderNumber = orderData["Номер_заказа"];
     document.getElementById("orderNumber").textContent = orderNumber || "—";
-
-    async function loadOrder() {
-      // Здесь должен быть ваш защищённый endpoint, принимающий initData от Telegram
-      // Пример:
-      // const initData = tg.initDataUnsafe;
-      // const res = await fetch(`/api/order?number=${encodeURIComponent(orderNumber)}`, {
-      //   headers: { 'X-Telegram-InitData': tg.initData }
-      // });
-      // const data = await res.json();
-      // renderOrder(data);
-      try {
-        // Пока заглушка (демо)
-        renderOrder({
-          "Номер_заказа": orderNumber,
-          "Дата_создания": new Date().toLocaleString(),
-          "Контрагент": "ООО Строй",
-          "Телефон": "+79991234567",
-          "Дата": "2025-04-05",
-          "Время": "14:30",
-          "Класс бетона/марка раствора": "В25",
-          "Подвижность, морозостойкость, дубль, крупность щебня": "W6F100П4",
-          "Способ подачи смеси": "насос",
-          "Адрес": "ул. Ленина, 10",
-          "Примечание": "Доставка после 18:00"
-        });
-      } catch (e) {
-        tg.showAlert("Не удалось загрузить заказ");
-      }
-    }
 
     function renderOrder(data) {
       const container = document.getElementById("orderDetails");
       container.innerHTML = "";
       Object.entries(data).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === "" || key === "id") return;
+        if (value === undefined || value === null || String(value).trim() === "" || key === "id") return;
         const div = document.createElement("div");
         div.className = "info";
         div.innerHTML = `<div class="label">${key}</div><div class="value">${value}</div>`;
         container.appendChild(div);
       });
+      if (!container.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'info';
+        empty.innerHTML = `<div class="value">Детали заказа недоступны в параметрах URL.</div>`;
+        container.appendChild(empty);
+      }
     }
+
+    renderOrder(orderData);
 
     document.getElementById("excelBtn").onclick = function () {
       const wb = XLSX.utils.book_new();
       const data = [];
       document.querySelectorAll(".info").forEach(el => {
-        const label = el.querySelector(".label").textContent;
-        const value = el.querySelector(".value").textContent;
-        data.push([label, value]);
+        const label = el.querySelector(".label")?.textContent;
+        const value = el.querySelector(".value")?.textContent;
+        if (label && value) data.push([label, value]);
       });
       const ws = XLSX.utils.aoa_to_sheet([["Поле", "Значение"], ...data]);
       XLSX.utils.book_append_sheet(wb, ws, "Заказ");
       XLSX.writeFile(wb, `Заказ_${orderNumber || 'без_номера'}.xlsx`);
     };
-
-    document.getElementById("pdfBtn").onclick = function () {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      let y = 20;
-      doc.setFontSize(16);
-      doc.text(`Заказ ${orderNumber || '—'}`, 20, y);
-      y += 10;
-
-      document.querySelectorAll(".info").forEach(el => {
-        const label = el.querySelector(".label").textContent;
-        const value = el.querySelector(".value").textContent;
-        doc.setFontSize(12);
-        doc.text(label + ":", 20, y);
-        doc.setFontSize(10);
-        const lines = doc.splitTextToSize(value, 170);
-        lines.forEach(line => {
-          y += 6;
-          doc.text(line, 20, y);
-        });
-        y += 10;
-        if (y > 270) {
-          doc.addPage();
-          y = 20;
-        }
-      });
-
-      doc.save(`Заказ_${orderNumber || 'без_номера'}.pdf`);
-    };
-
-    loadOrder();
   </script>
 </body>
 </html>
