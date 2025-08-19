@@ -1,0 +1,77 @@
+import asyncio
+import sqlite3
+import json
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+import os
+
+# === НАСТРОЙКИ ===
+API_TOKEN = "7589951885:AAEi7nejGWQXFExoBWw2vj043oOCmUV0mNc"  # Токен менеджер-бота
+MANAGER_CHAT_ID = 123456789  # Ваш ID (узнать можно через @userinfobot)
+WEBAPP_URL = "https://victhegeek.github.io/order_view.html"  # Страница просмотра заказа
+DB_FILE = "beton.db"
+
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher()
+
+# Хранение последнего обработанного ID
+last_processed_id = 0
+
+# --- Загрузка последнего ID при старте ---
+async def load_last_id():
+    global last_processed_id
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT MAX(id) FROM beton")
+    result = cursor.fetchone()[0]
+    last_processed_id = result or 0
+    conn.close()
+
+# --- Проверка новых заказов ---
+async def check_new_orders():
+    global last_processed_id
+    while True:
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, Номер_заказа FROM beton WHERE id > ? ORDER BY id", (last_processed_id,))
+            new_orders = cursor.fetchall()
+            conn.close()
+
+            for order_id, order_number in new_orders:
+                await bot.send_message(
+                    chat_id=MANAGER_CHAT_ID,
+                    text=f"📦 Новый заказ: <b>{order_number}</b>",
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [InlineKeyboardButton(
+                                text=f"Открыть заказ {order_number}",
+                                web_app=WebAppInfo(url=f"{WEBAPP_URL}?order={order_number}")
+                            )]
+                        ]
+                    ),
+                    parse_mode="HTML"
+                )
+                last_processed_id = order_id  # Обновляем ID
+
+            await asyncio.sleep(5)  # Проверка каждые 5 секунд
+
+        except Exception as e:
+            print(f"Ошибка при проверке заказов: {e}")
+            await asyncio.sleep(10)
+
+# --- Команда /start ---
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    await message.answer("✅ Менеджер-бот запущен. Уведомления о новых заказах включены.")
+
+# --- Запуск бота ---
+async def main():
+    await load_last_id()
+    # Запускаем проверку заказов в фоне
+    asyncio.create_task(check_new_orders())
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
